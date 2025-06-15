@@ -1,0 +1,130 @@
+---
+config:
+  layout: elk
+---
+flowchart LR
+ subgraph subGraph0["Telemetry Source"]
+        OS["Operating System"]
+  end
+ subgraph subGraph1["Endpoint Collection Layer"]
+        PC["process-collector"]
+        NC["network-collector"]
+        FC["file-collector"]
+        PERS["persistence-collector"]
+  end
+ subgraph subGraph2["Raw Events (On Message Bus)"]
+        EVT_PROC["events.raw.processes"]
+        EVT_NET["events.raw.network"]
+        EVT_FILE["events.raw.filesystem"]
+        EVT_PERS["events.raw.persistence"]
+  end
+ subgraph subGraph3["Analysis & Enrichment"]
+        IOC["ioc-analyzer"]
+        YARA["yara-analyzer"]
+        UEBA["ueba-analyzer"]
+        AM["asset-manager"]
+        VI["vulnerability-intel-integrator"]
+  end
+ subgraph subGraph4["Advanced Processing"]
+        CE["correlation-engine"]
+        RE["response-engine"]
+        DE["deception-engine"]
+        CDR["cdr-service"]
+  end
+ subgraph subGraph5["Alerts & Incidents (On Message Bus)"]
+        ALT_IOC["alerts.high.ioc_match"]
+        ALT_YARA["alerts.medium.yara_match"]
+        ALT_BEHAVIOR["alerts.anomaly.behavior"]
+        ALT_DECEPTION["alerts.critical.deception"]
+        INCIDENTS["incidents.critical"]
+  end
+ subgraph subGraph6["Ingestion & Storage"]
+        ING["ingestor-service"]
+        DB[("PostgreSQL")]
+  end
+ subgraph subGraph7["Presentation & User Interaction"]
+        API["api-service"]
+        UI["ui-service"]
+        USER["User"]
+  end
+ subgraph subGraph8["Action & Response Topics (On Message Bus)"]
+        ACT_KILL["actions.request.kill_process"]
+        ACT_ISOLATE["actions.request.isolate_host"]
+        ACT_GETFILE["actions.request.get_file"]
+        ACT_FORENSICS["actions.request.collect_forensics"]
+        ACT_CDR["actions.request.cdr"]
+  end
+ subgraph subGraph9["External Sources"]
+        VI_EXT["External<br>CVE Feeds"]
+  end
+    OS --> PC & NC & FC & PERS
+    PC --> EVT_PROC
+    NC --> EVT_NET
+    FC --> EVT_FILE
+    PERS --> EVT_PERS
+    EVT_PROC --> ING & IOC & YARA & UEBA & AM & CE
+    EVT_NET --> ING & IOC & UEBA & AM & CE
+    EVT_FILE --> ING & IOC & YARA & UEBA & AM
+    EVT_PERS --> ING & UEBA & AM
+    ING -- WRITE --> DB
+    IOC -- IP/Domain/Hash Match --> ALT_IOC
+    YARA -- Yara Signature Match --> ALT_YARA
+    UEBA -- Behavioral Anomaly --> ALT_BEHAVIOR
+    DE -- Honeytoken Access --> ALT_DECEPTION
+    AM -- WRITE/UPDATE Asset Info --> DB
+    VI_EXT --> VI
+    VI -- WRITE/UPDATE Vuln Info --> DB
+    ALT_IOC --> CE
+    ALT_YARA --> CE
+    ALT_BEHAVIOR --> CE
+    CE -- "Multi-stage Attack Pattern" --> INCIDENTS
+    INCIDENTS --> RE
+    RE -- Playbook: Isolate Host --> ACT_ISOLATE
+    RE -- Playbook: Kill Process --> ACT_KILL
+    RE -- Playbook: Collect Evidence --> ACT_FORENSICS
+    ACT_KILL -.-> PC
+    ACT_ISOLATE -.-> NC
+    ACT_GETFILE -.-> FC
+    ACT_FORENSICS -.-> FC & PC
+    ACT_CDR -.-> CDR
+    USER --> UI
+    UI --> API
+    API -- Read Data --> DB
+    API -- Read Alerts --> ALT_IOC & ALT_YARA & ALT_BEHAVIOR
+    API -- Trigger Manual Action --> ACT_KILL & ACT_ISOLATE & ACT_GETFILE
+     PC:::collector
+     NC:::collector
+     FC:::collector
+     PERS:::collector
+     EVT_PROC:::topic
+     EVT_NET:::topic
+     EVT_FILE:::topic
+     EVT_PERS:::topic
+     IOC:::service
+     YARA:::service
+     UEBA:::service
+     AM:::service
+     VI:::service
+     CE:::service
+     RE:::service
+     DE:::service
+     CDR:::service
+     ALT_IOC:::topic
+     ALT_YARA:::topic
+     ALT_BEHAVIOR:::topic
+     ALT_DECEPTION:::topic
+     INCIDENTS:::topic
+     ING:::service
+     API:::service
+     UI:::service
+     ACT_KILL:::topic
+     ACT_ISOLATE:::topic
+     ACT_GETFILE:::topic
+     ACT_FORENSICS:::topic
+     ACT_CDR:::topic
+    classDef collector fill:#add8e6,stroke:#333,stroke-width:2px
+    classDef service fill:#d2ffd2,stroke:#333,stroke-width:2px
+    classDef topic fill:#ffe4b5,stroke:#333,stroke-width:1px,stroke-dasharray: 5 5
+    style OS fill:#e6e6fa,stroke:#333
+    style DB fill:#FFF8DC,stroke:#333,stroke-width:2px
+    style USER fill:#f9f,stroke:#333
