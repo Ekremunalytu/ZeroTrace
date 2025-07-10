@@ -1,0 +1,260 @@
+# ZeroTrace - Cross-Platform Development Environment
+# Usage: make <target>
+#
+# This Makefile provides a unified interface for all development tasks
+# and automatically detects the best environment (container vs local).
+
+.PHONY: help setup start stop shell build test clean lint format security status reset
+
+# Default target
+.DEFAULT_GOAL := help
+
+# Colors for output
+BLUE := \033[36m
+GREEN := \033[32m
+RED := \033[31m
+YELLOW := \033[33m
+CYAN := \033[96m
+RESET := \033[0m
+
+# Cross-platform detection
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+    PLATFORM := linux
+endif
+ifeq ($(UNAME_S),Darwin)
+    PLATFORM := macos
+endif
+ifeq ($(findstring CYGWIN,$(UNAME_S)),CYGWIN)
+    PLATFORM := windows
+endif
+ifeq ($(findstring MINGW,$(UNAME_S)),MINGW)
+    PLATFORM := windows
+endif
+
+# Development wrapper script
+DEV_SCRIPT := ./dev
+
+help: ## Show this help message
+	@echo "$(CYAN)╔══════════════════════════════════════════════════════════════╗$(RESET)"
+	@echo "$(CYAN)║                     🛡️  ZeroTrace XDR                      ║$(RESET)"
+	@echo "$(CYAN)║                Cross-Platform Development                    ║$(RESET)"
+	@echo "$(CYAN)╚══════════════════════════════════════════════════════════════╝$(RESET)"
+	@echo ""
+	@echo "$(GREEN)Environment Commands:$(RESET)"
+	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / { printf "  $(BLUE)%-15s$(RESET) %s\n", $$1, $$2 }' $(MAKEFILE_LIST) | grep -E "(setup|start|stop|shell|status|reset)"
+	@echo ""
+	@echo "$(GREEN)Development Commands:$(RESET)"
+	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / { printf "  $(BLUE)%-15s$(RESET) %s\n", $$1, $$2 }' $(MAKEFILE_LIST) | grep -E "(build|test|clean|lint|format|security)"
+	@echo ""
+	@echo "$(YELLOW)Quick Start (Platform: $(PLATFORM)):$(RESET)"
+	@echo "  1. make setup     # Setup development environment"
+	@echo "  2. make start     # Start development environment"  
+	@echo "  3. make build     # Build all components"
+	@echo "  4. make test      # Run tests"
+	@echo "  5. make shell     # Open development shell"
+	@echo ""
+
+## 🛠️ DEVELOPMENT SETUP
+
+dev-setup: ## Setup complete development environment
+	@echo "$(GREEN)Setting up development environment...$(RESET)"
+	pip install -e ".[dev]"
+	pre-commit install
+	@echo "$(GREEN)✓ Development environment ready!$(RESET)"
+
+## 🚀 MAIN COMMANDS (One-Click Operations)
+
+up: ## 🚀 Start all services (One-Click Start)
+	@echo "$(GREEN)Starting ZeroTrace development environment...$(RESET)"
+	@if [ ! -f .env ]; then \
+		echo "$(YELLOW)Creating .env file from template...$(RESET)"; \
+		cp .env.example .env; \
+	fi
+	docker-compose up -d
+	@echo "$(GREEN)✅ Environment started!$(RESET)"
+	@echo ""
+	@echo "$(BLUE)Available services:$(RESET)"
+	@echo "  🌐 RabbitMQ Management: http://localhost:15672 (zerotrace/zerotrace_dev_pass)"
+	@echo "  🗄️  pgAdmin:            http://localhost:5050 (admin@zerotrace.local/admin)"
+	@echo "  📧 MailHog:            http://localhost:8025"
+	@echo "  🔧 API:                http://localhost:8000"
+	@echo "  🎨 UI:                 http://localhost:3000"
+	@echo ""
+	@echo "$(YELLOW)Next steps:$(RESET)"
+	@echo "  make init    # Initialize database and services"
+	@echo "  make shell   # Enter development container"
+
+down: ## 🛑 Stop all services
+	@echo "$(RED)Stopping ZeroTrace environment...$(RESET)"
+	docker-compose down
+	@echo "$(GREEN)✅ Environment stopped!$(RESET)"
+
+init: ## 🏗️ Initialize development environment
+	@echo "$(GREEN)Initializing development environment...$(RESET)"
+	docker-compose exec devcontainer dev-helper init
+	@echo "$(GREEN)✅ Environment initialized!$(RESET)"
+
+build: ## 🔨 Build all C++ components
+	@echo "$(GREEN)Building C++ components...$(RESET)"
+	docker-compose exec devcontainer dev-helper build
+	@echo "$(GREEN)✅ Build completed!$(RESET)"
+
+rebuild: ## 🔄 Rebuild containers and restart
+	@echo "$(YELLOW)Rebuilding containers...$(RESET)"
+	docker-compose down
+	docker-compose build --no-cache
+	docker-compose up -d
+	@echo "$(GREEN)✅ Rebuild completed!$(RESET)"
+
+## 📊 MONITORING & DEBUGGING
+
+logs: ## 📋 Show logs (live tail)
+	@echo "$(BLUE)Showing live logs (Ctrl+C to exit)...$(RESET)"
+	docker-compose logs -f
+
+logs-service: ## 📋 Show logs for specific service (make logs-service SERVICE=postgres)
+	@echo "$(BLUE)Showing logs for $(SERVICE)...$(RESET)"
+	docker-compose logs -f $(SERVICE)
+
+status: ## 📊 Show service status
+	@echo "$(BLUE)Service Status:$(RESET)"
+	@docker-compose ps
+	@echo ""
+	@echo "$(BLUE)Health Status:$(RESET)"
+	@docker-compose exec devcontainer dev-helper status 2>/dev/null || echo "$(RED)Development container not running$(RESET)"
+
+shell: ## 🐚 Enter development container shell
+	@echo "$(GREEN)Entering development container...$(RESET)"
+	docker-compose exec devcontainer /bin/bash
+
+shell-service: ## 🐚 Enter specific service shell (make shell-service SERVICE=postgres)
+	@echo "$(GREEN)Entering $(SERVICE) container...$(RESET)"
+	docker-compose exec $(SERVICE) /bin/bash
+
+## 🧪 DEVELOPMENT & TESTING
+
+test: ## 🧪 Run all tests
+	@echo "$(GREEN)Running tests...$(RESET)"
+	docker-compose exec devcontainer dev-helper test
+
+start-api: ## 🌐 Start API service in development mode
+	@echo "$(GREEN)Starting API service...$(RESET)"
+	docker-compose exec devcontainer dev-helper start-api
+
+start-ui: ## 🎨 Start UI service in development mode
+	@echo "$(GREEN)Starting UI service...$(RESET)"
+	docker-compose exec devcontainer dev-helper start-ui
+
+start-collector: ## 📊 Start process collector
+	@echo "$(GREEN)Starting process collector...$(RESET)"
+	docker-compose exec devcontainer dev-helper start-collector
+
+## 🧹 MAINTENANCE
+
+clean: ## 🧹 Clean build artifacts
+	@echo "$(YELLOW)Cleaning build artifacts...$(RESET)"
+	docker-compose exec devcontainer dev-helper clean
+	@echo "$(GREEN)✅ Cleanup completed!$(RESET)"
+
+clean-all: ## 🗑️ Clean everything (containers, volumes, images)
+	@echo "$(RED)⚠️  This will remove ALL containers, volumes, and images!$(RESET)"
+	@read -p "Are you sure? (y/N): " confirm && [ "$$confirm" = "y" ] || exit 1
+	docker-compose down -v --remove-orphans
+	docker system prune -af --volumes
+	@echo "$(GREEN)✅ Complete cleanup finished!$(RESET)"
+
+reset: ## 🔄 Reset entire environment (clean + rebuild)
+	@echo "$(YELLOW)Resetting entire environment...$(RESET)"
+	$(MAKE) down
+	$(MAKE) clean-all
+	$(MAKE) up
+	$(MAKE) init
+	@echo "$(GREEN)✅ Environment reset completed!$(RESET)"
+
+## 🔒 SECURITY COMMANDS
+
+security-check: ## 🔒 Run comprehensive security check
+	@echo "$(GREEN)Running security checks...$(RESET)"
+	./scripts/security-check.sh
+
+security-scan: ## 🔍 Scan dependencies for vulnerabilities  
+	@echo "$(GREEN)Scanning dependencies for vulnerabilities...$(RESET)"
+	python3 -m pip install safety
+	safety check
+	@echo "$(GREEN)✅ Security scan completed!$(RESET)"
+
+secrets-check: ## 🕵️ Check for hardcoded secrets
+	@echo "$(GREEN)Scanning for secrets...$(RESET)"
+	@if [ ! -f ".secrets.baseline" ]; then \
+		echo "Creating secrets baseline..."; \
+		detect-secrets scan --baseline .secrets.baseline; \
+	fi
+	detect-secrets scan --baseline .secrets.baseline --exclude-files '\.env\.example$$'
+	@echo "$(GREEN)✅ Secrets check completed!$(RESET)"
+
+fix-permissions: ## 🔧 Fix file permissions
+	@echo "$(GREEN)Fixing file permissions...$(RESET)"
+	chmod +x scripts/*.sh
+	chmod +x infrastructure/docker/scripts/*
+	chmod 600 configs/*/security.env 2>/dev/null || true
+	chmod 600 .env 2>/dev/null || true
+	@echo "$(GREEN)✅ Permissions fixed!$(RESET)"
+
+## 🚀 PRODUCTION COMMANDS
+
+prod-build: ## 🏗️ Build production images
+	@echo "$(GREEN)Building production images...$(RESET)"
+	docker-compose -f docker-compose.prod.yml build
+	@echo "$(GREEN)✅ Production images built!$(RESET)"
+
+## 📦 PRODUCTION COMMANDS
+
+prod-up: ## 🚀 Start production environment
+	@echo "$(GREEN)Starting production environment...$(RESET)"
+	docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+prod-logs: ## 📋 Show production logs
+	docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs -f
+
+## 🔧 UTILITY COMMANDS
+
+backup-db: ## 💾 Backup database
+	@echo "$(GREEN)Creating database backup...$(RESET)"
+	@mkdir -p backups
+	docker-compose exec postgres pg_dump -U zerotrace zerotrace > backups/zerotrace_$(shell date +%Y%m%d_%H%M%S).sql
+	@echo "$(GREEN)✅ Database backup created in backups/ folder$(RESET)"
+
+restore-db: ## 📥 Restore database (make restore-db FILE=backup.sql)
+	@echo "$(YELLOW)Restoring database from $(FILE)...$(RESET)"
+	@if [ ! -f "$(FILE)" ]; then echo "$(RED)File $(FILE) not found!$(RESET)"; exit 1; fi
+	docker-compose exec -T postgres psql -U zerotrace -d zerotrace < $(FILE)
+	@echo "$(GREEN)✅ Database restored!$(RESET)"
+
+update: ## 🔄 Update all Docker images
+	@echo "$(GREEN)Updating Docker images...$(RESET)"
+	docker-compose pull
+	@echo "$(GREEN)✅ Images updated!$(RESET)"
+
+## 📋 INFORMATION
+
+info: ## ℹ️ Show environment information
+	@echo "$(BLUE)ZeroTrace Development Environment Info$(RESET)"
+	@echo ""
+	@echo "$(GREEN)Project Structure:$(RESET)"
+	@echo "  📁 services/     - Microservices source code"
+	@echo "  🐳 infrastructure/ - Docker & deployment files"
+	@echo "  📊 data/         - Persistent data storage"
+	@echo "  ⚙️ configs/      - Configuration files"
+	@echo ""
+	@echo "$(GREEN)Key Files:$(RESET)"
+	@echo "  🐳 docker-compose.yml    - Main orchestration"
+	@echo "  ⚙️ .env                  - Environment variables"
+	@echo "  🔨 Makefile              - This file"
+	@echo "  📋 PROJECT_STRUCTURE.md  - Detailed documentation"
+	@echo ""
+	@echo "$(GREEN)Quick Commands:$(RESET)"
+	@echo "  make up && make init     - Start everything"
+	@echo "  make shell               - Enter dev container"
+	@echo "  make logs                - Watch all logs"
+	@echo "  make clean               - Clean build files"

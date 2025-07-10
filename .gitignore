@@ -1,61 +1,123 @@
-# Build directories
-build/
+# === ZeroTrace - Comprehensive .gitignore ===
+
+# === Runtime & Temporary Files (NEW STRUCTURE) ===
+.runtime/
+!.runtime/.gitkeep
+.workspace/
+!.workspace/.gitkeep
+
+# === Build Artifacts ===
+build/bin/
+build/lib/
+build/obj/
 cmake-build-*/
-tmp/
+*.tmp
+*.temp
 
-# CLion IDE
+# === IDE & Editors ===
 .idea/
+.vscode/
 *.iml
+*.swp
+*.swo
+*~
+.DS_Store
 
-# Compiler output
+# === Compiler Output ===
 *.o
 *.so
 *.dylib
 *.dll
 *.exe
 
-# CMake
+# === CMake ===
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
-Makefile
-install_manifest.txt
 
-# Testing
-Testing/
-
-# Python
+# === Python ===
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-env/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 venv/
+ENV/
+env/
 .venv/
-pip-log.txt
-pip-delete-this-directory.txt
 
-# Logs
+# === Testing ===
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# === Logs ===
 *.log
 logs/
+runtime/logs/
+data/logs/
 
-# Database
-*.db
-*.sqlite
-
-# Temporary files
+# === OS Files ===
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
-*.tmp
-*.temp
 
-# Documentation build
-docs/_build/
-
-# Docker
-.docker/
-
-# Environment variables
+# === Environment & Secrets ===
 .env
 .env.local
+.env.*.local
+.secrets.baseline
+*.pem
+*.key
+*.crt
+secrets/
+.secrets/
+*.secret
+config.json
+credentials.json
+
+# Security config files (they contain default/example values, not real secrets)
+# Uncomment below if you want to ignore these files too:
+# build/configs/*/security.env
+
+# === Database ===
+*.db
+*.sqlite
+*.sqlite3
+
+# === Node.js ===
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# === Temporary Files ===
+*.tmp
+*.temp
+.tmp/
+.temp/

@@ -1,0 +1,165 @@
+version: '3.8'
+
+services:
+  # =============================================================================
+  # DEVELOPMENT CONTAINER - All tools included
+  # =============================================================================
+  devcontainer:
+    build:
+      context: ../../
+      dockerfile: build/docker/Dockerfile.dev
+    container_name: zerotrace-dev
+    volumes:
+      # Source code mount (live editing)
+      - ../../:/workspace:cached
+      # Persistent development data
+      - dev_home:/home/developer
+      - dev_cache:/home/developer/.cache
+      # Docker socket for container management
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      # Development environment
+      - DEV_MODE=true
+      - WORKSPACE=/workspace
+      # Dynamic user mapping for better cross-platform compatibility
+      - USER_UID=${USER_UID:-1000}
+      - USER_GID=${USER_GID:-1000}
+      # Service URLs (container names)
+      - POSTGRES_HOST=postgres
+      - RABBITMQ_HOST=rabbitmq
+      - REDIS_HOST=redis
+    ports:
+      # Development ports
+      - "8000:8000"   # API service
+      - "3000:3000"   # UI service  
+      - "8080:8080"   # Additional dev server
+      - "9000:9000"   # Debug port
+    networks:
+      - zerotrace-network
+    depends_on:
+      - postgres
+      - rabbitmq
+      - redis
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+
+  # =============================================================================
+  # INFRASTRUCTURE SERVICES
+  # =============================================================================
+  
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: zerotrace-postgres
+    environment:
+      POSTGRES_DB: zerotrace
+      POSTGRES_USER: zerotrace
+      POSTGRES_PASSWORD: zerotrace_dev_pass
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d:ro
+    networks:
+      - zerotrace-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zerotrace -d zerotrace"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: zerotrace-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: zerotrace
+      RABBITMQ_DEFAULT_PASS: zerotrace_dev_pass
+      RABBITMQ_DEFAULT_VHOST: /
+    ports:
+      - "5672:5672"     # AMQP
+      - "15672:15672"   # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq:/etc/rabbitmq:ro
+    networks:
+      - zerotrace-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis (for caching YARA rules, etc.)
+  redis:
+    image: redis:7-alpine
+    container_name: zerotrace-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - zerotrace-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # =============================================================================
+  # OPTIONAL: Monitoring & Development Tools
+  # =============================================================================
+  
+  # pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:8.5
+    container_name: zerotrace-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@zerotrace.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DISABLE_POSTFIX: true
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - zerotrace-network
+    depends_on:
+      - postgres
+    profiles:
+      - tools
+
+  # Mailhog for email testing (if needed)
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: zerotrace-mailhog
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+    networks:
+      - zerotrace-network
+    profiles:
+      - tools
+
+# =============================================================================
+# NETWORKS & VOLUMES
+# =============================================================================
+networks:
+  zerotrace-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
+
+volumes:
+  # Persistent data
+  postgres_data:
+  rabbitmq_data:
+  redis_data:
+  pgadmin_data:
+  
+  # Development volumes
+  dev_home:
+  dev_cache:

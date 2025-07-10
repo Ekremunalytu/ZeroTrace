@@ -1,0 +1,130 @@
+version: '3.8'
+
+services:
+  # =============================================================================
+  # PRODUCTION APPLICATION SERVICES
+  # =============================================================================
+  zerotrace-api:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.prod
+    container_name: zerotrace-api-prod
+    environment:
+      - ENVIRONMENT=production
+      - POSTGRES_HOST=postgres
+      - RABBITMQ_HOST=rabbitmq
+      - REDIS_HOST=redis
+    env_file:
+      - configs/production/security.env
+    ports:
+      - "8000:8000"
+    volumes:
+      # No source code mount in production
+      - prod_logs:/var/log/zerotrace
+      - prod_quarantine:/var/zerotrace/quarantine
+    networks:
+      - zerotrace-prod-network
+    depends_on:
+      - postgres
+      - rabbitmq
+      - redis
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache
+
+  # =============================================================================
+  # PRODUCTION INFRASTRUCTURE SERVICES
+  # =============================================================================
+  
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: zerotrace-postgres-prod
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+      - ./infrastructure/docker/init-db:/docker-entrypoint-initdb.d:ro
+    networks:
+      - zerotrace-prod-network
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: zerotrace-rabbitmq-prod
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_VHOST: /
+    volumes:
+      - rabbitmq_prod_data:/var/lib/rabbitmq
+      - ./infrastructure/docker/rabbitmq:/etc/rabbitmq:ro
+      - ./configs/production/ssl:/etc/ssl:ro
+    networks:
+      - zerotrace-prod-network
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: zerotrace-redis-prod
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_prod_data:/data
+    networks:
+      - zerotrace-prod-network
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "redis-cli", "auth", "${REDIS_PASSWORD}", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# =============================================================================
+# PRODUCTION NETWORKS & VOLUMES
+# =============================================================================
+networks:
+  zerotrace-prod-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+
+volumes:
+  # Persistent data
+  postgres_prod_data:
+    driver: local
+  rabbitmq_prod_data:
+    driver: local
+  redis_prod_data:
+    driver: local
+  
+  # Application data
+  prod_logs:
+    driver: local
+  prod_quarantine:
+    driver: local

@@ -1,0 +1,39 @@
+{
+    "name": "ZeroTrace XDR Development",
+    "dockerComposeFile": "../build/docker/docker-compose.yml",
+    "service": "devcontainer",
+    "workspaceFolder": "/workspace",
+    
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "python.defaultInterpreterPath": "/usr/bin/python3",
+                "python.terminal.activateEnvironment": false
+            },
+            "extensions": [
+                "ms-python.python",
+                "ms-python.autopep8",
+                "ms-python.flake8",
+                "ms-vscode.cpptools",
+                "ms-vscode.cmake-tools",
+                "ms-azuretools.vscode-docker",
+                "redhat.vscode-yaml",
+                "ms-vscode.vscode-json"
+            ]
+        }
+    },
+    
+    "forwardPorts": [3000, 8000, 5432, 15672, 5050],
+    "portsAttributes": {
+        "3000": {"label": "UI Service"},
+        "8000": {"label": "API Service"},
+        "5432": {"label": "PostgreSQL"},
+        "15672": {"label": "RabbitMQ Management"},
+        "5050": {"label": "pgAdmin"}
+    },
+    
+    "postCreateCommand": "echo 'ZeroTrace XDR Development Environment Ready!' && dev-helper status",
+    
+    "remoteUser": "developer"
+}

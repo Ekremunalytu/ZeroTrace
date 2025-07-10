@@ -1,0 +1,153 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://zerotrace.local/schemas/event-schema.json",
+  "title": "ZeroTrace Common Event Schema",
+  "description": "Standardized event format for all ZeroTrace collectors",
+  "type": "object",
+  "required": [
+    "event_id",
+    "timestamp",
+    "event_type", 
+    "source",
+    "hostname",
+    "data"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this event"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the event occurred (ISO 8601 format)"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "process.created",
+        "process.terminated",
+        "network.connection.established",
+        "network.connection.closed",
+        "file.created",
+        "file.modified",
+        "file.deleted",
+        "persistence.registry.modified",
+        "persistence.startup.created"
+      ],
+      "description": "Type of event that occurred"
+    },
+    "source": {
+      "type": "object",
+      "required": ["service", "version", "hostname"],
+      "properties": {
+        "service": {
+          "type": "string",
+          "description": "Name of the collector service"
+        },
+        "version": {
+          "type": "string", 
+          "description": "Version of the collector"
+        },
+        "hostname": {
+          "type": "string",
+          "description": "Hostname where the collector is running"
+        }
+      }
+    },
+    "hostname": {
+      "type": "string",
+      "description": "Target hostname where the event occurred"
+    },
+    "data": {
+      "type": "object",
+      "description": "Event-specific data payload",
+      "oneOf": [
+        {"$ref": "#/definitions/ProcessEvent"},
+        {"$ref": "#/definitions/NetworkEvent"},
+        {"$ref": "#/definitions/FileEvent"},
+        {"$ref": "#/definitions/PersistenceEvent"}
+      ]
+    }
+  },
+  
+  "definitions": {
+    "ProcessEvent": {
+      "type": "object",
+      "required": ["pid", "ppid", "process_name", "command_line"],
+      "properties": {
+        "pid": {"type": "integer"},
+        "ppid": {"type": "integer"},
+        "process_name": {"type": "string"},
+        "command_line": {"type": "string"},
+        "executable_path": {"type": "string"},
+        "user": {"type": "string"},
+        "session_id": {"type": "integer"},
+        "integrity_level": {"type": "string"},
+        "process_guid": {"type": "string"},
+        "hashes": {
+          "type": "object",
+          "properties": {
+            "md5": {"type": "string"},
+            "sha1": {"type": "string"},
+            "sha256": {"type": "string"}
+          }
+        }
+      }
+    },
+    
+    "NetworkEvent": {
+      "type": "object",
+      "required": ["protocol", "source_ip", "source_port", "destination_ip", "destination_port"],
+      "properties": {
+        "protocol": {"type": "string", "enum": ["TCP", "UDP", "ICMP"]},
+        "source_ip": {"type": "string", "format": "ipv4"},
+        "source_port": {"type": "integer", "minimum": 1, "maximum": 65535},
+        "destination_ip": {"type": "string", "format": "ipv4"},
+        "destination_port": {"type": "integer", "minimum": 1, "maximum": 65535},
+        "process_id": {"type": "integer"},
+        "process_name": {"type": "string"},
+        "bytes_sent": {"type": "integer"},
+        "bytes_received": {"type": "integer"},
+        "connection_state": {"type": "string"}
+      }
+    },
+    
+    "FileEvent": {
+      "type": "object", 
+      "required": ["file_path", "action"],
+      "properties": {
+        "file_path": {"type": "string"},
+        "action": {"type": "string", "enum": ["created", "modified", "deleted", "renamed"]},
+        "old_file_path": {"type": "string"},
+        "file_size": {"type": "integer"},
+        "process_id": {"type": "integer"},
+        "process_name": {"type": "string"},
+        "user": {"type": "string"},
+        "hashes": {
+          "type": "object",
+          "properties": {
+            "md5": {"type": "string"},
+            "sha1": {"type": "string"},
+            "sha256": {"type": "string"}
+          }
+        },
+        "file_attributes": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    
+    "PersistenceEvent": {
+      "type": "object",
+      "required": ["technique", "location"],
+      "properties": {
+        "technique": {"type": "string"},
+        "location": {"type": "string"},
+        "value": {"type": "string"},
+        "process_id": {"type": "integer"},
+        "process_name": {"type": "string"},
+        "user": {"type": "string"}
+      }
+    }
+  }
+}
