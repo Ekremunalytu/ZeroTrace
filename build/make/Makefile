@@ -49,7 +49,7 @@ help: ## Show this help message
 	@echo ""
 	@echo "$(YELLOW)Quick Start (Platform: $(PLATFORM)):$(RESET)"
 	@echo "  1. make setup     # Setup development environment"
-	@echo "  2. make start     # Start development environment"  
+	@echo "  2. make start     # Start development environment"
 	@echo "  3. make build     # Build all components"
 	@echo "  4. make test      # Run tests"
 	@echo "  5. make shell     # Open development shell"
@@ -94,6 +94,24 @@ build-cpp: ## Build C++ components only
 build-python: ## Build Python components only
 	@echo "$(GREEN)Building Python components...$(RESET)"
 	@$(DEV_SCRIPT) build python
+
+security: ## Run security checks
+	@echo "$(GREEN)Running security checks...$(RESET)"
+	@$(DEV_SCRIPT) security
+
+lint: ## Run linting on all code
+	@echo "$(GREEN)Running linters...$(RESET)"
+	@$(DEV_SCRIPT) lint
+
+format: ## Format all code (C++, Python)
+	@echo "$(GREEN)Formatting code...$(RESET)"
+	@$(DEV_SCRIPT) format
+
+pre-commit-install: ## Install pre-commit hooks
+	@echo "$(GREEN)Installing pre-commit hooks...$(RESET)"
+	@$(DEV_SCRIPT) pre-commit-install
+
+quality: lint security ## Run all quality checks
 
 test: ## Run all tests
 	@echo "$(GREEN)Running all tests...$(RESET)"
